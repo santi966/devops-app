@@ -1,0 +1,42 @@
+name: Build and Push Image
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set image tag
+        run: echo "TAG=${GITHUB_SHA}" >> $GITHUB_ENV
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build image
+        run: docker build -t $IMAGE_NAME:$TAG .
+
+      - name: Push image
+        run: docker push $IMAGE_NAME:$TAG
+
+      #  GitOps step 
+      - name: Update infra repo
+        run: |
+          git clone https://github.com/YOUR_ORG/k8s-infra.git
+          cd k8s-infra/apps/html-app/overlays/prod
+
+          sed -i "s/newTag:.*/newTag: $TAG/" kustomization.yaml
+
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+
+          git commit -am "Deploy html-app $TAG"
+          git push
