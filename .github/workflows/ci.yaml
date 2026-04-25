@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  IMAGE_NAME: ghcr.io/Santi966/devops-app
 
 jobs:
   build:
@@ -19,7 +19,7 @@ jobs:
         run: echo "TAG=${GITHUB_SHA}" >> $GITHUB_ENV
 
       - name: Login to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.Santi966 }} --password-stdin
 
       - name: Build image
         run: docker build -t $IMAGE_NAME:$TAG .
