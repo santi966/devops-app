@@ -1,42 +1,58 @@
-name: Build and Push Image
-
+name: CI/CD Pipeline
 on:
   push:
-    branches: [ "main" ]
-
-env:
-  IMAGE_NAME: ghcr.io/Santi966/devops-app
-
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Set image tag
-        run: echo "TAG=${GITHUB_SHA}" >> $GITHUB_ENV
-
-      - name: Login to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.Santi966 }} --password-stdin
-
-      - name: Build image
-        run: docker build -t $IMAGE_NAME:$TAG .
-
-      - name: Push image
-        run: docker push $IMAGE_NAME:$TAG
-
-      #  GitOps step 
-      - name: Update infra repo
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.CR_PAT }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+      - name: Update GitOps repository
+        shell: bash
+        env:
+          GIT_TOKEN: ${{ secrets.GITOPS_PAT }}
         run: |
-          git clone https://github.com/YOUR_ORG/k8s-infra.git
-          cd k8s-infra/apps/html-app/overlays/prod
-
-          sed -i "s/newTag:.*/newTag: $TAG/" kustomization.yaml
-
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-
-          git commit -am "Deploy html-app $TAG"
-          git push
+          # Configure git credential store
+          git config --global credential.helper store
+          echo "https://${GIT_TOKEN}:x-oauth-basic@github.com" > ~/.git-credentials
+          
+          # Remove any existing gitops directory
+          rm -rf gitops
+          
+          # Clone repository using HTTPS URL without token
+          git clone https://github.com/Santi966/devops-gitops.git gitops
+          cd gitops
+          
+          if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s|image: ghcr.io/${{ github.repository }}:.*|image: ghcr.io/${{ github.repository }}:${{ github.sha }}|g" deployment.yaml
+          else
+            sed -i "s|image: ghcr.io/${{ github.repository }}:.*|image: ghcr.io/${{ github.repository }}:${{ github.sha }}|g" deployment.yaml
+          fi
+          
+          # Commit changes
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add deployment.yaml
+          git commit -m "Update image to ${{ github.sha }}"
+          
+          # Push
+          git push -f https://${GIT_TOKEN}@github.com/Santi966/devops-gitops.git main
