@@ -39,7 +39,7 @@ jobs:
           rm -rf gitops
           
           # Clone repository using HTTPS URL without token
-          git clone https://github.com/Santi966/devops-gitops.git gitops
+          git clone https://github.com/santi966/devops-gitops.git gitops
           cd gitops
           
           if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -55,4 +55,4 @@ jobs:
           git commit -m "Update image to ${{ github.sha }}"
           
           # Push
-          git push -f https://${GIT_TOKEN}@github.com/Santi966/devops-gitops.git main
+          git push -f https://${GIT_TOKEN}@github.com/santi966/devops-gitops.git main
